@@ -1,6 +1,6 @@
 /*
  * ═══════════════════════════════════════════════════════════════
- *  NerdMiner Mesh Edition  —  Single-file Arduino sketch
+ *  MeshMiner32 Edition  —  Single-file Arduino sketch
  *  Target  : ESP32 DevKit V1  (esp32 board package 3.x)
  *  Pool    : public-pool.io:3333  (0% fee, verify at web.public-pool.io)
  *  Display : SH1106 128x64 — 4-wire Hardware SPI
@@ -31,8 +31,8 @@
 //  SECTION 1 — USER CONFIGURATION  (edit these before flashing)
 // ───────────────────────────────────────────────────────────────
 
-#define WIFI_SSID        "YourSSID"
-#define WIFI_PASSWORD    "YourPassword"
+#define WIFI_SSID        "Home Assistant"
+#define WIFI_PASSWORD    "7537819ajk"
 #define WIFI_TIMEOUT_MS  20000
 
 // public-pool.io — 0% fee solo pool, tracks workers by BTC address
@@ -40,7 +40,7 @@
 // e.g.  bc1qXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXXX.esp32master
 #define POOL_HOST   "public-pool.io"
 #define POOL_PORT   3333
-#define POOL_USER   "bc1qYourBitcoinAddress.MeshMiner32"
+#define POOL_USER   "bc1qdh02k3mrznn038g62arfpe8n42nk9uc96hcpty.MeshMiner32"
 #define POOL_PASS   "x"
 
 #define STRATUM_TIMEOUT_MS  10000
@@ -469,7 +469,7 @@ public:
         Serial.printf("[Stratum] -> %s:%d\n",host,port);
         if(!_client.connect(host,port)){Serial.println("[Stratum] connection failed");return false;}
         _lastAct=millis();
-        _tx("{\"id\":"+String(_id++)+",\"method\":\"mining.subscribe\",\"params\":[\"NerdMinerMesh/1.0\",null]}\n");
+        _tx("{\"id\":"+String(_id++)+",\"method\":\"mining.subscribe\",\"params\":[\"MeshMiner32/1.0\",null]}\n");
         uint32_t t=millis();
         while(millis()-t<STRATUM_TIMEOUT_MS){
             String line; if(_rxLine(line,500)){
