@@ -1,19 +1,19 @@
-# MeshMiner32[README.md](https://github.com/user-attachments/files/26394134/README.md)# MeshMiner32 ₿
+# MeshMiner32
 
 A DIY Bitcoin solo miner built on ESP32 DevKit V1 boards using ESP-NOW mesh networking, a SH1106 SPI OLED display, and public-pool.io.
 
 Multiple ESP32 boards work together as a mesh — one **master** connects to WiFi and the Bitcoin mining pool, while **worker** nodes receive job assignments over ESP-NOW and hash their portion of the nonce space independently. The more workers you add, the higher the combined hashrate.
 
-![MeshMiner32 Mining Page](photos/mining.jpg)
+![Mining page](photos/mining.jpg)
 
 ---
 
 ## Features
 
-- **ESP-NOW mesh** — no router needed between nodes, works peer-to-peer at up to 250m range
-- **Auto nonce splitting** — master divides the nonce space evenly across all connected workers
+- **ESP-NOW mesh** — no router needed between nodes, works peer-to-peer
+- **Auto nonce splitting** — master divides the nonce space evenly across all workers
 - **SH1106 SPI OLED** — 4 rotating info pages on the master (Mining, Pool, Network, Mesh Workers)
-- **Boot screen** — Bitcoin ₿ logo with MeshMiner32 name on startup
+- **Boot screen** — Bitcoin B logo with MeshMiner32 name on startup
 - **Mining spinner** — animated indicator shows active hashing
 - **Blue LED** — blinks proportional to hash speed on both master and worker
 - **Fallback election** — if master goes offline, workers elect a new master automatically
@@ -31,7 +31,7 @@ Multiple ESP32 boards work together as a mesh — one **master** connects to WiF
 | ESP32 DevKit V1 | Any ESP32-WROOM-32 based board |
 | USB cable | For flashing and power |
 
-### Master only (one board)
+### Master only
 | Part | Notes |
 |------|-------|
 | SH1106 128x64 OLED | SPI version, 6-pin (no CS pin) |
@@ -43,14 +43,14 @@ Multiple ESP32 boards work together as a mesh — one **master** connects to WiF
 
 ```
 SH1106 OLED    ESP32 DevKit V1
-───────────    ───────────────
-VCC / 3V3  →  3.3V
-GND        →  GND
-SCL        →  GPIO 18  (HW SPI SCK)
-SDA        →  GPIO 23  (HW SPI MOSI)
-RES        →  GPIO 4   (D4)
-DC         →  GPIO 2   (D2)
-CS         →  GND on module (no wire needed)
+-----------    ---------------
+VCC / 3V3  ->  3.3V
+GND        ->  GND
+SCL        ->  GPIO 18  (HW SPI SCK)
+SDA        ->  GPIO 23  (HW SPI MOSI)
+RES        ->  GPIO 4   (D4)
+DC         ->  GPIO 2   (D2)
+CS         ->  GND on module (no wire needed)
 ```
 
 ---
@@ -64,7 +64,7 @@ CS         →  GND on module (no wire needed)
 - `U8g2` >= 2.35 by olikraus
 
 **Worker** requires:
-- No extra libraries — only the ESP32 board package
+- No extra libraries needed
 
 ### Board settings (Arduino IDE)
 - Board: **ESP32 Dev Module**
@@ -85,7 +85,6 @@ CS         →  GND on module (no wire needed)
 
 > Your Bitcoin address must be a native SegWit `bc1q...` address.
 > Get one free from [BlueWallet](https://bluewallet.io) or [Electrum](https://electrum.org).
-> The `.MeshMiner32` suffix is your worker name on the pool dashboard.
 
 ### Worker — edit the top of `MeshMiner32_Worker.ino`
 
@@ -104,7 +103,7 @@ CS         →  GND on module (no wire needed)
 2. Open `MeshMiner32_Worker.ino` in Arduino IDE — flash to each **worker** board
 3. Power both boards — workers auto-discover the master within seconds
 
-Each file must be inside a folder with the **exact same name** as the `.ino` file.
+Each `.ino` file must be inside a folder with the **exact same name**.
 
 ---
 
@@ -117,7 +116,7 @@ The OLED cycles through 4 pages every 3 seconds. Press the **BOOT button** to ad
 | **Mining** | Spinner, hashrate, peers, accepted shares, found blocks, job ID |
 | **Pool** | Pool host, port, difficulty, accepted shares |
 | **Network** | WiFi SSID, IP address, RSSI signal strength, mesh node count |
-| **Mesh Workers** | Each worker's MAC address and hashrate |
+| **Mesh Workers** | Each worker MAC address and hashrate |
 
 ---
 
@@ -127,32 +126,28 @@ The OLED cycles through 4 pages every 3 seconds. Press the **BOOT button** to ad
 2. Enter your `bc1q...` Bitcoin address
 3. Your miner appears as **MeshMiner32** after the first accepted share
 
-> At ~25 kH/s per ESP32 the pool difficulty is 100,000 — expect the first share
-> to appear within a few hours of running. The OLED `Acc:` counter confirms
-> shares are being accepted.
-
 ---
 
 ## How It Works
 
 ```
 Bitcoin Network
-      │
-      │ Stratum protocol
-      ▼
-  MASTER ESP32  ──── WiFi ────  public-pool.io
-      │
-      │ ESP-NOW (2.4GHz, no router needed)
-      │
-  ┌───┴───────────────────┐
-  │                       │
-WORKER 1              WORKER 2  ...
-nonce 0x00000000      nonce 0x55555555
-  to 0x55555554          to 0xAAAAAAAA
+      |
+      | Stratum protocol
+      v
+  MASTER ESP32  ---- WiFi ----  public-pool.io
+      |
+      | ESP-NOW (2.4GHz, no router needed)
+      |
+  +---+-------------------+
+  |                       |
+WORKER 1              WORKER 2
+nonce 0x00000000      nonce 0x80000000
+  to 0x7FFFFFFF          to 0xFFFFFFFF
 ```
 
 - Master connects to the pool and receives Bitcoin block templates
-- Nonce space `0x00000000–0xFFFFFFFF` is split evenly: master takes chunk 0, workers get the rest
+- Nonce space is split evenly: master takes chunk 0, workers get the rest
 - Each node hashes its range independently using double-SHA256
 - If a valid nonce is found, worker sends it to master via ESP-NOW
 - Master submits the result to the pool via Stratum
@@ -161,14 +156,11 @@ nonce 0x00000000      nonce 0x55555555
 
 ## Expected Performance
 
-| Nodes | Combined Hashrate | Notes |
-|-------|------------------|-------|
-| 1 master | ~25 kH/s | Solo, full nonce range |
-| 1 master + 1 worker | ~50 kH/s | Split 50/50 |
-| 1 master + 3 workers | ~100 kH/s | Split 25% each |
-
-> Hashrate varies by ESP32 variant and clock speed.
-> ESP32-S3 boards run faster than standard WROOM-32.
+| Nodes | Combined Hashrate |
+|-------|------------------|
+| 1 master only | ~25 kH/s |
+| 1 master + 1 worker | ~50 kH/s |
+| 1 master + 3 workers | ~100 kH/s |
 
 ---
 
@@ -188,10 +180,8 @@ nonce 0x00000000      nonce 0x55555555
 
 ```
 MeshMiner32/
-├── MeshMiner32/
-│   └── MeshMiner32.ino        # Master node sketch
-├── MeshMiner32_Worker/
-│   └── MeshMiner32_Worker.ino # Worker node sketch
+├── MeshMiner32.ino          # Master node sketch
+├── MeshMiner32_Worker.ino   # Worker node sketch
 ├── photos/
 │   ├── mining.jpg
 │   ├── pool.jpg
@@ -221,6 +211,3 @@ MIT License — free to use, modify and share. Credit appreciated but not requir
 Inspired by the original [NerdMiner v2](https://github.com/BitMaker-hub/NerdMiner_v2) project by BitMaker.
 Built with [U8g2](https://github.com/olikraus/u8g2) display library and [ArduinoJson](https://arduinojson.org).
 Solo mining via [public-pool.io](https://web.public-pool.io) — 0% fee, open source.
-
-
-ESP32 mesh Bitcoin miner with ESP-NOW, SPI OLED display and public-pool.io
