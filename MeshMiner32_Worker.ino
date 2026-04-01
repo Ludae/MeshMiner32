@@ -1,6 +1,6 @@
 /*
  * ═══════════════════════════════════════════════════════════════
- *  NerdMiner Mesh Edition  —  WORKER node
+ *  MeshMiner32 Edition  —  WORKER node
  *  Target  : ESP32 DevKit V1  (esp32 board package 3.x)
  *
  *  No WiFi, no pool connection needed on workers.
@@ -23,7 +23,7 @@
  *  └───────────┴─────────────────────────────┘
  *
  *  Flash this sketch to every ESP32 that acts as a worker.
- *  Flash NerdMinerMesh.ino to the master (the one with WiFi).
+ *  Flash MeshMiner32.ino to the master (the one with WiFi).
  *  All boards must be on the same ESP-NOW channel (default 1).
  * ═══════════════════════════════════════════════════════════════
  */
@@ -524,7 +524,7 @@ static volatile uint8_t  pendingNonceJob   = 0;
 // Lowest XOR-of-MAC priority wins. The winner would need WiFi
 // credentials to actually connect to the pool — this is a
 // best-effort failover.  Set NODE_ROLE ROLE_MASTER on the
-// intended backup node and flash NerdMinerMesh.ino to it instead
+// intended backup node and flash MeshMiner32.ino to it instead
 // for a fully capable promotion.
 static void checkElection(){
     if(electionInProgress) return;
