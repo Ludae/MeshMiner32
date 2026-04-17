@@ -15,6 +15,174 @@ Built on top of [NerdMiner v2](https://github.com/BitMaker-hub/NerdMiner_v2) con
 - **Display sleep** — OLED powers off after 30s of inactivity, BOOT button wakes it
 - **Channel drift fix** — automatically resyncs ESP-NOW peer channels if the AP changes WiFi channel
 - **Non-blocking pool reconnect** — pool outages don't freeze the mining loop
+- **Dual-core mining** — both cores mine simultaneously; Core 1 is dedicated, Core 0 fills idle cycles between WiFi/ESP-NOW events; volatile flag handoff keeps cross-core submission safe
+- **Built-in LED** — blinks at hash speed (faster = more hashes)
+- **Solo mining** via [public-pool.io](https://web.public-pool.io) — 0% fee
+
+---
+
+## Hardware
+
+- ESP32 DevKit V1 (one per node — add as many as you like)
+- SH1106 128×64 OLED display (SPI version) — one per node, optional on workers
+
+---
+
+## Wiring (SH1106 SPI OLED)
+
+| OLED pin  | ESP32 pin         |
+|-----------|-------------------|
+| VCC       | 3.3V              |
+| GND       | GND               |
+| CLK / D0  | GPIO 18 (HW SCK)  |
+| MOSI / D1 | GPIO 23 (HW MOSI) |
+| CS        | GND (tied low)    |
+| DC        | GPIO 22           |
+| RST       | GPIO 4            |
+
+> The built-in blue LED on GPIO 2 blinks at hash speed — no extra wiring needed.
+
+---
+
+## Libraries
+
+Install both via **Arduino Library Manager**:
+
+| Library     | Author     | Version  |
+|-------------|------------|----------|
+| ArduinoJson | bblanchon  | >= 7.0   |
+| U8g2        | olikraus   | >= 2.35  |
+
+---
+
+## Configuration
+
+Edit **Section 1** at the top of `MeshMiner32.ino` before flashing:
+
+```cpp
+// WiFi — master node only
+#define WIFI_SSID      "your_network"
+#define WIFI_PASSWORD  "your_password"
+
+// Pool — replace with your BTC address
+#define POOL_HOST  "public-pool.io"
+#define POOL_PORT  3333
+#define POOL_USER  "bc1qYOURADDRESS.MeshMiner32"
+#define POOL_PASS  "x"
+
+// Node role (leave as ROLE_AUTO for all nodes)
+#define NODE_ROLE  ROLE_AUTO
+
+// Display sleep timeout in ms (0 = never sleep)
+#define DISPLAY_SLEEP_MS  30000
+```
+
+Flash the **same sketch** to every node. Nodes that connect to WiFi become master; nodes that can't become workers.
+
+---
+
+## Display Pages
+
+| Page | Content |
+|------|---------|
+| 0 — Mining  | Hashrate, peers, accepted shares, found blocks, job ID, uptime |
+| 1 — Pool    | Pool host, port, difficulty, accepted shares |
+| 2 — Network | SSID, IP address, RSSI, mesh node count |
+| 3 — Mesh    | Per-worker MAC and hashrate |
+
+Press the **BOOT button** to manually cycle pages or wake the display from sleep.
+
+---
+
+## How the Mesh Works
+
+```
+┌─────────────────────────────────────────────┐
+│  MASTER (has WiFi)                          │
+│  • Connects to Stratum pool                 │
+│  • Receives mining jobs                     │
+│  • Splits nonce range across all nodes      │
+│  • Broadcasts job slices over ESP-NOW       │
+│  • Submits found nonces to pool             │
+└────────────────┬────────────────────────────┘
+                 │ ESP-NOW broadcast
+     ┌───────────┴───────────┐
+     │                       │
+┌────▼──────┐         ┌──────▼─────┐
+│ WORKER 1  │   ...   │ WORKER N   │
+│ mines its │         │ mines its  │
+│ nonce     │         │ nonce      │
+│ range     │         │ range      │
+└───────────┘         └────────────┘
+```
+
+- Master slices `0x00000000–0xFFFFFFFF` evenly across all nodes including itself
+- Workers send found nonces back to master via ESP-NOW
+- Master submits to pool on behalf of all workers
+- If master disappears, workers elect a new one after ~15s
+
+---
+
+## Monitoring
+
+Check your miner live at **https://web.public-pool.io** — enter your BTC address to see hashrate, shares, and worker names.
+
+---
+
+## Expected Performance
+
+| Nodes | Approx combined hashrate |
+|-------|--------------------------|
+| 1     | ~26 kH/s                 |
+| 2     | ~52 kH/s                 |
+| 5     | ~130 kH/s                |
+| 10    | ~260 kH/s                |
+| 20    | ~520 kH/s (ESP-NOW max)  |
+
+Each node runs SHA-256 on both cores simultaneously (~13 kH/s per core). The master's Core 0 mines between WiFi/pool events with no connectivity impact.
+
+> This is a fun hobby project. At ESP32 hashrates the odds of solo mining a block are astronomically low — the reward is learning and building, not Bitcoin.
+
+---
+
+## Serial Monitor
+
+Set baud to **115200**. Key log prefixes:
+
+| Prefix | Meaning |
+|--------|---------|
+| `[Stratum]` | Pool connection events, jobs, difficulty |
+| `[Dispatch]` | Job sent to all nodes |
+| `[Redispatch]` | Job re-sent to a specific worker |
+| `[Miner0]` / `[Miner1]` | Each core picked up a new job (dual-core, split nonce range) |
+| `[Mesh]` | ESP-NOW peer events, channel sync |
+| `[Election]` | Master election events |
+| `[Display]` | Page flips, sleep/wake |
+| `[Found]` | A valid nonce was found |
+
+---
+
+## License
+
+MIT
+[README.md](https://github.com/user-attachments/files/26809638/README.md)
+# MeshMiner32
+
+A single-file Arduino sketch that turns ESP32 DevKit V1 boards into a **Bitcoin solo mining mesh**. One node connects to the pool as master; additional nodes join automatically over ESP-NOW and are assigned their own nonce range — no extra WiFi credentials or configuration needed on worker nodes.
+
+Built on top of [NerdMiner v2](https://github.com/BitMaker-hub/NerdMiner_v2) concepts, extended with ESP-NOW mesh networking, leader election, and a 4-page SH1106 OLED display.
+
+---
+
+## Features
+
+- **Mesh networking** — up to 20 ESP32s collaborate over ESP-NOW, splitting the nonce space evenly
+- **Auto role assignment** — nodes with WiFi become master; nodes without become workers automatically (`ROLE_AUTO`)
+- **Leader election** — if the master goes offline, a worker promotes itself and takes over
+- **SH1106 OLED display** — 4 pages cycling: Mining stats, Pool info, Network, Mesh workers
+- **Display sleep** — OLED powers off after 30s of inactivity, BOOT button wakes it
+- **Channel drift fix** — automatically resyncs ESP-NOW peer channels if the AP changes WiFi channel
+- **Non-blocking pool reconnect** — pool outages don't freeze the mining loop
 - **Cross-core safe** — miner runs on Core 1, all WiFi/ESP-NOW on Core 0 with volatile flag handoff
 - **Built-in LED** — blinks at hash speed (faster = more hashes)
 - **Solo mining** via [public-pool.io](https://web.public-pool.io) — 0% fee
