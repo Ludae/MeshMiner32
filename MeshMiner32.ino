@@ -1,4 +1,4 @@
- //*
+ /*
  * ═══════════════════════════════════════════════════════════════
  *  MeshMiner32 Edition  —  Single-file Arduino sketch
  *  Target  : ESP32 DevKit V1  (esp32 board package 3.x)
